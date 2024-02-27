@@ -58,7 +58,7 @@ async def shortest_stays(ctx):
 @bot.event
 async def on_member_remove(member):
     leave_time = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
-    c.execute("SELECT join_time FROM members WHERE username=?", (member.name,))
+    c.execute("SELECT join_time FROM members WHERE user_id=?", (member.id,))
     join_time = c.fetchone()[0]
     duration = datetime.datetime.strptime(leave_time, '%Y-%m-%d %H:%M:%S') - datetime.datetime.strptime(join_time, '%Y-%m-%d %H:%M:%S')
     c.execute("UPDATE members SET leave_time=?, duration=? WHERE user_id=?", (leave_time, str(duration), member.id))
