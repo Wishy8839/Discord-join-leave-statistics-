@@ -17,6 +17,9 @@ c.execute('''CREATE TABLE IF NOT EXISTS members
              (user_id TEXT, username TEXT, join_time TEXT, leave_time TEXT, duration TEXT)''')
 conn.commit()
 
+
+
+bot.remove_command("help")
 async def on_ready():
     print('Bot is ready.')
 
@@ -37,23 +40,10 @@ async def on_member_join(member):
         join_time = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
         c.execute("INSERT INTO members VALUES (?, ?, ?, NULL, NULL)", (str(member.id), member.name, join_time))
         conn.commit()
-
-
-@bot.command()
-async def shortest_stays(ctx):
-    c.execute("SELECT username, duration FROM members WHERE duration IS NOT NULL")
-    rows = c.fetchall()
-    if rows:
-        sorted_rows = sorted(rows, key=lambda x: datetime.datetime.strptime(x[1], '%H:%M:%S'))
-        message = "Shorest stays:\n"
-        for index, row in enumerate(sorted_rows, start=1): # stolen from stakc overflow 
-            message += f"{index}. {row[0]} - {row[1]}\n"
-            if index >= 10:
-                break
-        await ctx.send(message)
-    else:
-        await ctx.send("No durations recorded in the database.")
-
+    elif existing_user: # if they do exist
+        join_time = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+        c.execute("UPDATE members SET username = ?, join_time = ?, leave_time = NULL, duration = NULL WHERE user_id = ?",(member.name, join_time, str(member.id)))
+        conn.commit()
 
 @bot.event
 async def on_member_remove(member):
@@ -63,6 +53,202 @@ async def on_member_remove(member):
     duration = datetime.datetime.strptime(leave_time, '%Y-%m-%d %H:%M:%S') - datetime.datetime.strptime(join_time, '%Y-%m-%d %H:%M:%S')
     c.execute("UPDATE members SET leave_time=?, duration=? WHERE user_id=?", (leave_time, str(duration), member.id))
     conn.commit()
+
+
+
+# commands --------------------------------------------------------------------------------------------------------------------
+@bot.command(name="shortest_stays", description="Displays the shortest stays of members")
+async def shortest_stays(ctx):
+    c.execute("SELECT username, duration FROM members WHERE duration IS NOT NULL")
+    rows = c.fetchall()
+    
+    if rows:
+        sorted_rows = sorted(rows, key=lambda x: datetime.datetime.strptime(x[1], '%H:%M:%S'))
+        embed = discord.Embed(title="Shortest Stays", color=discord.Color.red())
+        
+        for index, row in enumerate(sorted_rows, start=1):
+            embed.add_field(name=f"{index}. {row[0]}", value=row[1], inline=False)
+            
+            if index >= 10:
+                break
+        
+        await ctx.send(embed=embed)
+    else:
+        await ctx.send("No durations recorded in the database.")
+
+@bot.command(name="ss", description="Displays the shortest stays of members")
+async def shortest_stays(ctx):
+    c.execute("SELECT username, duration FROM members WHERE duration IS NOT NULL")
+    rows = c.fetchall()
+    
+    if rows:
+        sorted_rows = sorted(rows, key=lambda x: datetime.datetime.strptime(x[1], '%H:%M:%S'))
+        embed = discord.Embed(title="Shortest Stays", color=discord.Color.red())
+        
+        for index, row in enumerate(sorted_rows, start=1):
+            embed.add_field(name=f"{index}. {row[0]}", value=row[1], inline=False)
+            
+            if index >= 10:
+                break
+        
+        await ctx.send(embed=embed)
+    else:
+        await ctx.send("No durations recorded in the database.")
+
+@bot.command(name="longest_stays", description="Displays the first joins of members")
+async def first_joins(ctx):
+    c.execute("SELECT username, join_time FROM members WHERE join_time IS NOT NULL AND leave_time IS NULL")
+    rows = c.fetchall()
+    
+    if rows:
+        sorted_rows = sorted(rows, key=lambda x: datetime.datetime.utcnow() - datetime.datetime.strptime(x[1], '%Y-%m-%d %H:%M:%S'), reverse=True)
+        embed = discord.Embed(title="Longest stay", color=discord.Color.green())
+        
+        for index, row in enumerate(sorted_rows[:10], start=1):
+            time_stayed = datetime.datetime.utcnow() - datetime.datetime.strptime(row[1], '%Y-%m-%d %H:%M:%S')
+            days = time_stayed.days
+            hours, remainder = divmod(time_stayed.seconds, 3600)
+            minutes, seconds = divmod(remainder, 60)
+            
+            if days > 0:
+                duration_str = f"{days} days {hours} hours {minutes} minutes"
+            elif hours > 0:
+                duration_str = f"{hours} hours {minutes} minutes"
+            elif minutes > 0:
+                duration_str = f"{minutes} minutes {seconds} seconds"
+            else:
+                duration_str = f"{seconds} seconds"
+            
+            embed.add_field(name=f"{index}. {row[0]}", value=duration_str, inline=False)
+        
+        await ctx.send(embed=embed)
+    else:
+        await ctx.send("No members recorded in the database.")
+         
+@bot.command(name="ls", description="Displays the first joins of members")
+async def first_joins(ctx):
+    c.execute("SELECT username, join_time FROM members WHERE join_time IS NOT NULL AND leave_time IS NULL")
+    rows = c.fetchall()
+    
+    if rows:
+        sorted_rows = sorted(rows, key=lambda x: datetime.datetime.utcnow() - datetime.datetime.strptime(x[1], '%Y-%m-%d %H:%M:%S'), reverse=True)
+        embed = discord.Embed(title="Longest stay", color=discord.Color.green())
+        
+        for index, row in enumerate(sorted_rows[:10], start=1):
+            time_stayed = datetime.datetime.utcnow() - datetime.datetime.strptime(row[1], '%Y-%m-%d %H:%M:%S')
+            days = time_stayed.days
+            hours, remainder = divmod(time_stayed.seconds, 3600)
+            minutes, seconds = divmod(remainder, 60)
+            
+            if days > 0:
+                duration_str = f"{days} days {hours} hours {minutes} minutes"
+            elif hours > 0:
+                duration_str = f"{hours} hours {minutes} minutes"
+            elif minutes > 0:
+                duration_str = f"{minutes} minute {seconds} seconds"
+            else:
+                duration_str = f"{seconds} seconds "
+            
+            embed.add_field(name=f"{index}. {row[0]}", value=duration_str, inline=False)
+        
+        await ctx.send(embed=embed)
+    else:
+        await ctx.send("No members recorded in the database.")
+
+
+@bot.command(name="latest_joins", description="Shows the last people who joined")
+async def latest_joins(ctx):
+    c.execute("SELECT username, join_time FROM members WHERE join_time IS NOT NULL")
+    rows = c.fetchall()
+    
+    if rows:
+        sorted_rows = sorted(rows, key=lambda x: datetime.datetime.utcnow() - datetime.datetime.strptime(x[1], '%Y-%m-%d %H:%M:%S'), reverse=False)
+        embed = discord.Embed(title="Latest Joins", color=discord.Color.orange())
+        
+        for index, row in enumerate(sorted_rows[:10], start=1):
+            join_time = datetime.datetime.strptime(row[1], '%Y-%m-%d %H:%M:%S')
+            time_since_join = datetime.datetime.utcnow() - join_time
+            days = time_since_join.days
+            hours, remainder = divmod(time_since_join.seconds, 3600)
+            minutes, seconds = divmod(remainder, 60)
+            
+            if days > 0:
+                duration_str = f"{days} days {hours} hours {minutes} minutes ago"
+            elif hours > 0:
+                duration_str = f"{hours} hours {minutes} minutes ago"
+            elif minutes > 0:
+                duration_str = f"{minutes} minutes {seconds} seconds ago"
+            else:
+                duration_str = f"{seconds} seconds ago"
+            
+            embed.add_field(name=f"{index}. {row[0]}", value=duration_str, inline=False)
+        
+        await ctx.send(embed=embed)
+    else:
+        await ctx.send("No members recorded in the database.")
+
+
+@bot.command(name="lj", description="Shows the last people who joined")
+async def latest_joins(ctx):
+    c.execute("SELECT username, join_time FROM members WHERE join_time IS NOT NULL")
+    rows = c.fetchall()
+    
+    if rows:
+        sorted_rows = sorted(rows, key=lambda x: datetime.datetime.utcnow() - datetime.datetime.strptime(x[1], '%Y-%m-%d %H:%M:%S'), reverse=False)
+        embed = discord.Embed(title="Latest Joins", color=discord.Color.orange())
+        
+        for index, row in enumerate(sorted_rows[:10], start=1):
+            join_time = datetime.datetime.strptime(row[1], '%Y-%m-%d %H:%M:%S')
+            time_since_join = datetime.datetime.utcnow() - join_time
+            days = time_since_join.days
+            hours, remainder = divmod(time_since_join.seconds, 3600)
+            minutes, seconds = divmod(remainder, 60)
+            
+            if days > 0:
+                duration_str = f"{days} days {hours} hours {minutes} minutes ago"
+            elif hours > 0:
+                duration_str = f"{hours} hours {minutes} minutes ago"
+            elif minutes > 0:
+                duration_str = f"{minutes} minutes {seconds} seconds ago"
+            else:
+                duration_str = f"{seconds} seconds ago"
+            
+            embed.add_field(name=f"{index}. {row[0]}", value=duration_str, inline=False)
+        
+        await ctx.send(embed=embed)
+    else:
+        await ctx.send("No members recorded in the database.")
+
+
+
+
+@bot.tree.command(name="lookup", description="Look up someone")
+async def lookup(interaction: discord.Interaction, id: str):
+    c.execute("SELECT join_time, leave_time, duration FROM members WHERE user_id = ?", (str(id),))
+    person = c.fetchone()
+    
+    if not person:
+        await interaction.response.send_message("User has never joined the server", ephemeral=True)
+        return
+    join_time = datetime.datetime.strptime(person[0], '%Y-%m-%d %H:%M:%S')
+    join_time_str = join_time.strftime('%b %d %Y')
+    info = await bot.fetch_user(int(id))
+    embed = discord.Embed(title=f"{info.name}")
+    embed.set_author(name=interaction.user.name, icon_url=interaction.user.avatar.url, url="https://github.com/Wishy8839")
+    embed.add_field(name="Join time", value=f"{join_time_str}")
+    if person[1]:
+        leave_time_str = person[1].strftime('%b %d, %Y')
+        embed.add_field(name="Leave time", value=f"{leave_time_str}")
+        embed.add_field(name="Total stay", value=person[2])
+    else:
+        embed.add_field(name="Leave time", value="Never left")
+        embed.add_field(name="Total stay", value="User has not left yet")
+
+    embed.set_thumbnail(url=info.avatar.url)
+    await interaction.response.send_message(embed=embed)
+
+
+
 
 @bot.tree.command(name='update_commands', description='Owner only')
 async def sync(interaction: discord.Interaction):
