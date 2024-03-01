@@ -237,6 +237,7 @@ async def lookup(interaction: discord.Interaction, id: str):
     embed.set_author(name=interaction.user.name, icon_url=interaction.user.avatar.url, url="https://github.com/Wishy8839")
     embed.add_field(name="Join time", value=f"{join_time_str}")
     if person[1]:
+        leave_time = datetime.datetime.strptime(person[1], '%Y-%m-%d %H:%M:%S')
         leave_time_str = person[1].strftime('%b %d, %Y')
         embed.add_field(name="Leave time", value=f"{leave_time_str}")
         embed.add_field(name="Total stay", value=person[2])
